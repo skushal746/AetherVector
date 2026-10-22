@@ -41,41 +41,47 @@ graph TD
 📁 Repository Structure
 
 aether-vector/
-├── pom.xml                                  # Java 21 Preview & Incubator Compiler Flags
+├── pom.xml                                  # Parent POM: Java 21 preview & incubator compiler flags
 ├── README.md
+├── Dockerfile                               # Multi-stage build of the node image
 ├── docker-compose.yml                       # 3-Node Local Cluster Setup
 ├── benchmarks/                              # JMH (Java Microbenchmark Harness) Suite
+│   ├── pom.xml                              # Builds benchmarks/target/benchmarks.jar
 │   └── src/main/java/com/aether/bench/
 │       ├── DistanceBenchmark.java           # SIMD vs Scalar Loop Latency
 │       └── AllocationBenchmark.java         # Off-Heap vs On-Heap Allocation
-└── src/
-    ├── main/
-    │   ├── java/com/aether/vector/
-    │   │   ├── core/                        # Off-Heap Memory & SIMD Math
-    │   │   │   ├── OffHeapVectorStore.java
-    │   │   │   └── VectorMath.java
-    │   │   ├── index/                       # HNSW Algorithm Implementation
-    │   │   │   ├── HnswGraph.java
-    │   │   │   ├── HnswNode.java
-    │   │   │   └── HnswSearcher.java
-    │   │   ├── consensus/                   # Raft Engine Implementation
-    │   │   │   ├── RaftNode.java
-    │   │   │   ├── WriteAheadLog.java
-    │   │   │   └── rpc/
-    │   │   └── cluster/                     # Distributed Sharding
-    │   │       ├── HashRing.java
-    │   │       └── ClusterManager.java
-    │   └── proto/                           # Protobuf RPC Definitions
-    │       └── raft_service.proto
-    └── test/
-        └── java/com/aether/vector/          # JUnit 5 & Testcontainers Suite
+└── engine/                                  # Core engine module (engine/target/aether-vector.jar)
+    ├── pom.xml
+    └── src/
+        ├── main/
+        │   ├── java/com/aether/vector/
+        │   │   ├── AetherVectorNode.java    # Node entry point (env-configured)
+        │   │   ├── core/                    # Off-Heap Memory & SIMD Math
+        │   │   │   ├── OffHeapVectorStore.java
+        │   │   │   ├── DistanceMetric.java
+        │   │   │   └── VectorMath.java
+        │   │   ├── index/                   # HNSW Algorithm Implementation
+        │   │   │   ├── HnswGraph.java
+        │   │   │   ├── HnswNode.java
+        │   │   │   └── HnswSearcher.java
+        │   │   ├── consensus/               # Raft Engine Implementation
+        │   │   │   ├── RaftNode.java
+        │   │   │   ├── WriteAheadLog.java
+        │   │   │   └── rpc/                 # gRPC server & service adapter
+        │   │   └── cluster/                 # Distributed Sharding
+        │   │       ├── HashRing.java
+        │   │       └── ClusterManager.java
+        │   └── proto/                       # Protobuf RPC Definitions
+        │       └── raft_service.proto
+        └── test/
+            └── java/com/aether/vector/      # JUnit 5 Suite
 
 
 🛠 Prerequisites & Build Configuration
 
 Requirements
 
-JDK: OpenJDK 21 or higher (GraalVM Enterprise CE 21+ recommended)
+JDK: OpenJDK 21 — exactly 21. The FFM API is a preview feature in 21, and javac/java only accept --enable-preview for their own release, so neither a JDK 22+ compiler nor a JDK 22+ runtime will work with these class files. (The build's enforcer rule fails fast if JAVA_HOME is not a JDK 21.)
 
 Build Tool: Apache Maven 3.9+
 
@@ -106,7 +112,8 @@ Because this engine leverages preview and incubator features, the compiler requi
 
 git clone https://github.com/skushal746/aether-vector.git
 cd aether-vector
-mvn clean package -DskipTests
+export JAVA_HOME=$(/usr/libexec/java_home -v 21)   # macOS; point at any JDK 21 elsewhere
+mvn clean package -DskipTests      # or `mvn clean verify` to run the test suite
 
 
 2. Run SIMD vs Scalar Performance Benchmarks
@@ -124,6 +131,8 @@ Deploy a local 3-node distributed vector cluster using Docker Compose:
 
 docker-compose up -d
 docker-compose logs -f
+
+Each node is configured via environment variables (AETHER_NODE_ID, AETHER_HOST, AETHER_RPC_PORT, AETHER_PEERS as id@host:port,..., AETHER_DATA_DIR). Nodes are exposed on host ports 9091–9093.
 
 
 ⚡ Code Highlights

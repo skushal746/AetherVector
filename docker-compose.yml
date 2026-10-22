@@ -1,0 +1,44 @@
+# Local 3-node AetherVector Raft cluster.
+x-aether-node: &aether-node
+  build: .
+  image: aether-vector:local
+  restart: unless-stopped
+
+services:
+  aether-1:
+    <<: *aether-node
+    hostname: aether-1
+    environment:
+      AETHER_NODE_ID: node-1
+      AETHER_HOST: aether-1
+      AETHER_RPC_PORT: "9090"
+      AETHER_PEERS: node-2@aether-2:9090,node-3@aether-3:9090
+    ports: ["9091:9090"]
+    volumes: [aether-1-data:/data]
+
+  aether-2:
+    <<: *aether-node
+    hostname: aether-2
+    environment:
+      AETHER_NODE_ID: node-2
+      AETHER_HOST: aether-2
+      AETHER_RPC_PORT: "9090"
+      AETHER_PEERS: node-1@aether-1:9090,node-3@aether-3:9090
+    ports: ["9092:9090"]
+    volumes: [aether-2-data:/data]
+
+  aether-3:
+    <<: *aether-node
+    hostname: aether-3
+    environment:
+      AETHER_NODE_ID: node-3
+      AETHER_HOST: aether-3
+      AETHER_RPC_PORT: "9090"
+      AETHER_PEERS: node-1@aether-1:9090,node-2@aether-2:9090
+    ports: ["9093:9090"]
+    volumes: [aether-3-data:/data]
+
+volumes:
+  aether-1-data:
+  aether-2-data:
+  aether-3-data:
